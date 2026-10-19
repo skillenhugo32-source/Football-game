@@ -1,0 +1,198 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Mini Football</title>
+<style>
+body {
+  margin: 0;
+  background: #152b25;
+  color: white;
+  text-align: center;
+  font-family: Arial;
+}
+h1 { color: #ffe66d; }
+canvas {
+  background: #238b45;
+  border: 4px solid white;
+  max-width: 95vw;
+}
+button {
+  padding: 12px 22px;
+  margin: 8px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 17px;
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+<h1>⚽ MINI FOOTBALL</h1>
+<h3>Goals: <span id="score">0</span> |
+Time: <span id="time">60</span>s</h3>
+<canvas id="game" width="800" height="450"></canvas>
+<p>Move: WASD or arrow keys | Kick: SPACE</p>
+<button onclick="restart()">Restart Game</button>
+
+<script>
+const c = document.getElementById("game");
+const ctx = c.getContext("2d");
+
+let keys = {};
+let score, time, playing, last, timer;
+
+let player, ball, keeper;
+
+function restart() {
+  score = 0;
+  time = 60;
+  playing = true;
+
+  player = {x: 150, y: 225, r: 17};
+  ball = {x: 190, y: 225, vx: 0, vy: 0, r: 9};
+  keeper = {x: 750, y: 225, vy: 2.5};
+
+  document.getElementById("score").textContent = score;
+  document.getElementById("time").textContent = time;
+
+  clearInterval(timer);
+  timer = setInterval(() => {
+    if (!playing) return;
+    time--;
+    document.getElementById("time").textContent = time;
+    if (time <= 0) playing = false;
+  }, 1000);
+}
+
+document.addEventListener("keydown", e => {
+  keys[e.key.toLowerCase()] = true;
+  if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key))
+    e.preventDefault();
+});
+document.addEventListener("keyup", e => {
+  keys[e.key.toLowerCase()] = false;
+});
+
+function drawField() {
+  ctx.fillStyle = "#238b45";
+  ctx.fillRect(0, 0, 800, 450);
+
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(15, 15, 770, 420);
+
+  ctx.beginPath();
+  ctx.moveTo(400, 15);
+  ctx.lineTo(400, 435);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(400, 225, 65, 0, Math.PI*2);
+  ctx.stroke();
+
+  ctx.strokeRect(680, 125, 105, 200);
+  ctx.strokeRect(730, 175, 55, 100);
+
+  ctx.fillStyle = "#eeeeee";
+  ctx.fillRect(785, 175, 15, 100);
+}
+
+function circle(x, y, r, color) {
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI*2);
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+function loop() {
+  if (playing) {
+    let speed = 3.5;
+
+    if (keys["arrowup"] || keys["w"]) player.y -= speed;
+    if (keys["arrowdown"] || keys["s"]) player.y += speed;
+    if (keys["arrowleft"] || keys["a"]) player.x -= speed;
+    if (keys["arrowright"] || keys["d"]) player.x += speed;
+
+    player.x = Math.max(25, Math.min(775, player.x));
+    player.y = Math.max(25, Math.min(425, player.y));
+
+    let dx = ball.x-player.x;
+    let dy = ball.y-player.y;
+    let dist = Math.hypot(dx, dy);
+
+    if (dist < player.r + ball.r) {
+      ball.x += dx/(dist || 1)*2;
+      ball.y += dy/(dist || 1)*2;
+    }
+
+    if (keys[" "] && dist < 55) {
+      let angle = Math.atan2(ball.y-player.y, ball.x-player.x);
+      ball.vx = Math.cos(angle)*10;
+      ball.vy = Math.sin(angle)*10;
+    }
+
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+    ball.vx *= 0.985;
+    ball.vy *= 0.985;
+
+    if (ball.y < 25 || ball.y > 425) ball.vy *= -0.8;
+    if (ball.x < 25) ball.vx *= -0.8;
+
+    keeper.y += keeper.vy;
+    if (keeper.y < 135 || keeper.y > 315)
+      keeper.vy *= -1;
+
+    if (ball.x > 780 && ball.y > 175 && ball.y < 275) {
+      score++;
+      document.getElementById("score").textContent = score;
+      ball.x = 190;
+      ball.y = 225;
+      ball.vx = ball.vy = 0;
+      player.x = 150;
+      player.y = 225;
+    } else if (ball.x > 770) {
+      ball.x = 760;
+      ball.vx *= -0.8;
+    }
+
+    if (Math.hypot(ball.x-keeper.x, ball.y-keeper.y) < 25) {
+      ball.vx = -Math.abs(ball.vx)-2;
+      ball.vy += (ball.y-keeper.y)*0.15;
+    }
+  }
+
+  drawField();
+
+  circle(player.x, player.y, player.r, "#2980ff");
+  circle(player.x-5, player.y-3, 4, "white");
+
+  ctx.fillStyle = "#ff4545";
+  ctx.fillRect(keeper.x-8, keeper.y-22, 16, 44);
+
+  circle(ball.x, ball.y, ball.r, "white");
+  ctx.strokeStyle = "#222";
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, 5, 0, Math.PI*2);
+  ctx.stroke();
+
+  if (!playing) {
+    ctx.fillStyle = "rgba(0,0,0,0.7)";
+    ctx.fillRect(150, 155, 500, 130);
+    ctx.fillStyle = "white";
+    ctx.textAlign = "center";
+    ctx.font = "32px Arial";
+    ctx.fillText("FULL TIME!", 400, 205);
+    ctx.font = "23px Arial";
+    ctx.fillText("Final Score: " + score, 400, 245);
+  }
+
+  requestAnimationFrame(loop);
+}
+
+restart();
+loop();
+</script>
+</body>
+</html>
